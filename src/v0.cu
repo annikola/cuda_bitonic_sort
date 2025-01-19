@@ -8,7 +8,7 @@
 #define MIN_Q 1
 #define MAX_Q 27
 
-__global__ void mtlxchange(int *a, int jj, int kk) {
+__global__ void global_exchanges(int *a, int jj, int kk) {
 
     int i, ij, tid, dummy;
 
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
         kk = 1 << k;
         for (j = k - 1; j >= 0; j--) {
             jj = 1 << j;
-            mtlxchange<<<blocks, threads>>>(d_a, jj, kk);
+            global_exchanges<<<blocks, threads>>>(d_a, jj, kk);
             cudaDeviceSynchronize();
         }
     }

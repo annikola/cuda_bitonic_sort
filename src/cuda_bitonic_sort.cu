@@ -8,31 +8,82 @@
 #define MIN_Q 1
 #define MAX_Q 27
 
-__global__ void mtlxchange(int *a, int jj, int kk) {
+int isSortedAscending(int *arr, int size);
+int isSortedDescending(int *arr, int size);
 
-    int i, ij, tid, dummy;
+__global__ void external_exchanges(int *a, int kk, int kkk) {
+
+    int minmax, tid, dummy;
 
     tid = blockIdx.x * blockDim.x + threadIdx.x;
-    i = tid - 1;
 
-    ij = i ^ jj;
-    if (ij > i) {
-        if ((i & kk) == 0 && a[i] > a[ij]) {
-            dummy = a[i];
-            a[i] = a[ij];
-            a[ij] = dummy;
+    if ((tid & kk) == 0) {
+        minmax = tid & kkk;
+        if (minmax == 0 && a[tid] > a[tid + kk]) {
+            dummy = a[tid];
+            a[tid] = a[tid + kk];
+            a[tid + kk] = dummy;
         }
-        if ((i & kk) != 0 && a[i] < a[ij]) {
-            dummy = a[i];
-            a[i] = a[ij];
-            a[ij] = dummy;
+        if (minmax != 0 && a[tid] < a[tid + kk]) {
+            dummy = a[tid];
+            a[tid] = a[tid + kk];
+            a[tid + kk] = dummy;
+        }
+    }
+}
+
+__global__ void internal_exchanges(int *a, int k) {
+
+    int j, jj, jjj, minmax, tid, dummy;
+
+    tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    for (j = k - 1; j >= 0; j--) {
+        jj = 1 << j;
+        jjj = 2 << k;
+        if ((tid & jj) == 0) {
+            minmax = tid & jjj;
+            if (minmax == 0 && a[tid] > a[tid + jj]) {
+                dummy = a[tid];
+                a[tid] = a[tid + jj];
+                a[tid + jj] = dummy;
+            }
+            if (minmax != 0 && a[tid] < a[tid + jj]) {
+                dummy = a[tid];
+                a[tid] = a[tid + jj];
+                a[tid + jj] = dummy;
+            }
+        }
+        __syncthreads();
+    }
+}
+
+__global__ void global_exchanges(int *a, int j, int k) {
+
+    int jj, jjj, minmax, tid, dummy;
+
+    tid = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    jj = 1 << j;
+    jjj = 2 << k;
+    if ((tid & jj) == 0) {
+        minmax = tid & jjj;
+        if (minmax == 0 && a[tid] > a[tid + jj]) {
+            dummy = a[tid];
+            a[tid] = a[tid + jj];
+            a[tid + jj] = dummy;
+        }
+        if (minmax != 0 && a[tid] < a[tid + jj]) {
+            dummy = a[tid];
+            a[tid] = a[tid + jj];
+            a[tid + jj] = dummy;
         }
     }
 }
 
 int main(int argc, char *argv[]) {
 
-    int i, j, jj, k, kk, Q, A_size, blocks, threads;
+    int i, j, k, kk, kkk, Q, A_size, blocks, threads;
     int *A, *B, *d_a;
     float elapsed_time;
     cudaEvent_t start, stop;
@@ -55,7 +106,9 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < A_size; i++) {
         A[i] = rand();
         B[i] = A[i];
+        // printf("%d ", A[i]);
     }
+    // printf("\n");
 
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -75,13 +128,22 @@ int main(int argc, char *argv[]) {
         blocks = A_size / MAX_THREADS;
         threads = MAX_THREADS;
     }
-    for (k = 1; k <= Q; k++) {
+
+    for (k = 0; k < 10; k++) {
         kk = 1 << k;
-        for (j = k - 1; j >= 0; j--) {
-            jj = 1 << j;
-            mtlxchange<<<blocks, threads>>>(d_a, jj, kk);
-            cudaDeviceSynchronize();
+        kkk = 2 << k;
+        external_exchanges<<<blocks, threads>>>(d_a, kk, kkk);
+        internal_exchanges<<<blocks, threads>>>(d_a, k);
+    }
+
+    for (k = 10; k < Q; k++) {
+        kk = 1 << k;
+        kkk = 2 << k;
+        external_exchanges<<<blocks, threads>>>(d_a, kk, kkk);
+        for (j = k - 1; j > 9; j--) {
+            global_exchanges<<<blocks, threads>>>(d_a, j, k);
         }
+        internal_exchanges<<<blocks, threads>>>(d_a, k);
     }
 
     err = cudaMemcpy(A, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
@@ -102,10 +164,33 @@ int main(int argc, char *argv[]) {
         printf("Falsely sorted!\n");
     }
 
+    // for (i = 0; i < A_size; i++) {
+    //     printf("%d ", A[i]);
+    // }
+    // printf("\n");
+
     // Clean up
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
     cudaFree(d_a);
 
     return 0;
+}
+
+int isSortedAscending(int *arr, int size) {
+    for (int i = 0; i < size - 1; i++) {
+        if (arr[i] > arr[i + 1]) {
+            return 0; // Array is not sorted
+        }
+    }
+    return 1; // Array is sorted
+}
+
+int isSortedDescending(int *arr, int size) {
+    for (int i = 0; i < size - 1; i++) {
+        if (arr[i] < arr[i + 1]) {
+            return 0; // Array is not sorted
+        }
+    }
+    return 1; // Array is sorted
 }
