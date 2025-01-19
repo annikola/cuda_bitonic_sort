@@ -11,48 +11,61 @@
 int isSortedAscending(int *arr, int size);
 int isSortedDescending(int *arr, int size);
 
-__global__ void external_exchanges(int *a, int kk, int kkk) {
+__global__ void external_exchanges(int *a, int k) {
 
-    int minmax, tid, dummy;
+    int i, kk, kkk, minmax, tid, dummy, total_threads, total_blocks;
 
+    total_threads = blockDim.x * blockDim.y * blockDim.z;
+    total_blocks = gridDim.x * gridDim.y * gridDim.z;
     tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if ((tid & kk) == 0) {
-        minmax = tid & kkk;
-        if (minmax == 0 && a[tid] > a[tid + kk]) {
-            dummy = a[tid];
-            a[tid] = a[tid + kk];
-            a[tid + kk] = dummy;
-        }
-        if (minmax != 0 && a[tid] < a[tid + kk]) {
-            dummy = a[tid];
-            a[tid] = a[tid + kk];
-            a[tid + kk] = dummy;
-        }
+    kk = 1 << k;
+    kkk = 2 << k;
+    if ((tid & kk) != 0) {
+        i = tid + total_threads * total_blocks - kk;
+    } else {
+        i = tid;
+    }
+
+    minmax = i & kkk;
+    if (minmax == 0 && a[i] > a[i + kk]) {
+        dummy = a[i];
+        a[i] = a[i + kk];
+        a[i + kk] = dummy;
+    }
+    if (minmax != 0 && a[i] < a[i + kk]) {
+        dummy = a[i];
+        a[i] = a[i + kk];
+        a[i + kk] = dummy;
     }
 }
 
 __global__ void internal_exchanges(int *a, int k) {
 
-    int j, jj, jjj, minmax, tid, dummy;
+    int i, j, jj, jjj, minmax, tid, dummy, total_threads, total_blocks;
 
+    total_threads = blockDim.x * blockDim.y * blockDim.z;
+    total_blocks = gridDim.x * gridDim.y * gridDim.z;
     tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     for (j = k - 1; j >= 0; j--) {
         jj = 1 << j;
         jjj = 2 << k;
-        if ((tid & jj) == 0) {
-            minmax = tid & jjj;
-            if (minmax == 0 && a[tid] > a[tid + jj]) {
-                dummy = a[tid];
-                a[tid] = a[tid + jj];
-                a[tid + jj] = dummy;
-            }
-            if (minmax != 0 && a[tid] < a[tid + jj]) {
-                dummy = a[tid];
-                a[tid] = a[tid + jj];
-                a[tid + jj] = dummy;
-            }
+        if ((tid & jj) != 0) {
+            i = tid + total_threads * total_blocks - jj;
+        } else {
+            i = tid;
+        }
+        minmax = i & jjj;
+        if (minmax == 0 && a[i] > a[i + jj]) {
+            dummy = a[i];
+            a[i] = a[i + jj];
+            a[i + jj] = dummy;
+        }
+        if (minmax != 0 && a[i] < a[i + jj]) {
+            dummy = a[i];
+            a[i] = a[i + jj];
+            a[i + jj] = dummy;
         }
         __syncthreads();
     }
@@ -60,30 +73,35 @@ __global__ void internal_exchanges(int *a, int k) {
 
 __global__ void global_exchanges(int *a, int j, int k) {
 
-    int jj, jjj, minmax, tid, dummy;
+    int i, jj, jjj, minmax, tid, dummy, total_threads, total_blocks;
 
+    total_threads = blockDim.x * blockDim.y * blockDim.z;
+    total_blocks = gridDim.x * gridDim.y * gridDim.z;
     tid = blockIdx.x * blockDim.x + threadIdx.x;
     
     jj = 1 << j;
     jjj = 2 << k;
-    if ((tid & jj) == 0) {
-        minmax = tid & jjj;
-        if (minmax == 0 && a[tid] > a[tid + jj]) {
-            dummy = a[tid];
-            a[tid] = a[tid + jj];
-            a[tid + jj] = dummy;
-        }
-        if (minmax != 0 && a[tid] < a[tid + jj]) {
-            dummy = a[tid];
-            a[tid] = a[tid + jj];
-            a[tid + jj] = dummy;
-        }
+    if ((tid & jj) != 0) {
+        i = tid + total_threads * total_blocks - jj;
+    } else {
+        i = tid;
+    }
+    minmax = i & jjj;
+    if (minmax == 0 && a[i] > a[i + jj]) {
+        dummy = a[i];
+        a[i] = a[i + jj];
+        a[i + jj] = dummy;
+    }
+    if (minmax != 0 && a[i] < a[i + jj]) {
+        dummy = a[i];
+        a[i] = a[i + jj];
+        a[i + jj] = dummy;
     }
 }
 
 int main(int argc, char *argv[]) {
 
-    int i, j, k, kk, kkk, Q, A_size, blocks, threads;
+    int i, j, k, Q, A_size, blocks, threads;
     int *A, *B, *d_a;
     float elapsed_time;
     cudaEvent_t start, stop;
@@ -125,22 +143,18 @@ int main(int argc, char *argv[]) {
         blocks = 1;
         threads = A_size;
     } else {
-        blocks = A_size / MAX_THREADS;
+        blocks = (A_size / MAX_THREADS) / 2;
         threads = MAX_THREADS;
     }
 
-    for (k = 0; k < 10; k++) {
-        kk = 1 << k;
-        kkk = 2 << k;
-        external_exchanges<<<blocks, threads>>>(d_a, kk, kkk);
+    for (k = 0; k < 11; k++) {
+        external_exchanges<<<blocks, threads>>>(d_a, k);
         internal_exchanges<<<blocks, threads>>>(d_a, k);
     }
 
-    for (k = 10; k < Q; k++) {
-        kk = 1 << k;
-        kkk = 2 << k;
-        external_exchanges<<<blocks, threads>>>(d_a, kk, kkk);
-        for (j = k - 1; j > 9; j--) {
+    for (k = 11; k < Q; k++) {
+        external_exchanges<<<blocks, threads>>>(d_a, k);
+        for (j = k - 1; j >= 10; j--) {
             global_exchanges<<<blocks, threads>>>(d_a, j, k);
         }
         internal_exchanges<<<blocks, threads>>>(d_a, k);
