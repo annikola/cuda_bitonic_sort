@@ -153,13 +153,6 @@ int main(int argc, char *argv[]) {
     cudaEventRecord(start, 0); // Start the timing...
 
     cudaMalloc((void **)&d_a, A_size * sizeof(int));
-    int *d_b;
-    cudaMalloc((void **)&d_b, A_size * sizeof(int));
-
-    err = cudaMemcpy(d_b, B, A_size * sizeof(int), cudaMemcpyHostToDevice);
-    if (err != cudaSuccess) {
-        printf("CUDA error during cudaMemcpy (d_b): %s\n", cudaGetErrorString(err));
-    }
 
     err = cudaMemcpy(d_a, A, A_size * sizeof(int), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
