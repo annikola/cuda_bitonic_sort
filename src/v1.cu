@@ -40,7 +40,7 @@ __global__ void external_exchanges(int *a, int k) {
     }
 }
 
-__global__ void internal_exchanges(int *a, int k) {
+__global__ void internal_exchanges(int *a, int k, int flow) {
 
     int i, j, jj, jjj, minmax, tid, dummy;
 
@@ -48,7 +48,7 @@ __global__ void internal_exchanges(int *a, int k) {
 
     for (j = k - 1; j >= 0; j--) {
         jj = 1 << j;
-        jjj = 2 << k;
+        jjj = 2 << flow;
         if ((tid & jj) != 0) {
             i = tid + MAX_THREADS * (blockIdx.x + 1) - jj;
         } else {
@@ -144,17 +144,17 @@ int main(int argc, char *argv[]) {
         threads = MAX_THREADS;
     }
 
-    for (k = 0; k < 11; k++) {
+    for (k = 0; k < 12; k++) {
         external_exchanges<<<blocks, threads>>>(d_a, k);
-        internal_exchanges<<<blocks, threads>>>(d_a, k);
+        internal_exchanges<<<blocks, threads>>>(d_a, k, k);
     }
 
-    for (k = 11; k < Q; k++) {
+    for (k = 12; k < Q; k++) {
         external_exchanges<<<blocks, threads>>>(d_a, k);
-        for (j = k - 1; j >= 10; j--) {
+        for (j = k - 1; j > 10; j--) {
             global_exchanges<<<blocks, threads>>>(d_a, j, k);
         }
-        internal_exchanges<<<blocks, threads>>>(d_a, k);
+        internal_exchanges<<<blocks, threads>>>(d_a, 11, k);
     }
 
     err = cudaMemcpy(B, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
