@@ -146,9 +146,7 @@ int main(int argc, char *argv[]) {
     A = (int *)malloc(A_size * sizeof(int));
     for (i = 0; i < A_size; i++) {
         A[i] = rand();
-        // printf("%d ", A[i]);
     }
-    // printf("\n");
 
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -202,11 +200,6 @@ int main(int argc, char *argv[]) {
     } else {
         printf("Falsely sorted!\n");
     }
-
-    // for (i = 0; i < A_size; i++) {
-    //     printf("%d ", A[i]);
-    // }
-    // printf("\n");
 
     // Clean up
     cudaEventDestroy(start);
