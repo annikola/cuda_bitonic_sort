@@ -76,18 +76,22 @@ __global__ void internal_exchanges(int *a, int k, int flow) {
         __syncthreads();
     }
 
-    __syncthreads();
-
     a[tid + MAX_THREADS * blockIdx.x] = local_elements[ltid];
     a[tid + MAX_THREADS * (blockIdx.x + 1)] = local_elements[ltid + MAX_LOCAL_ELEMENTS / 2];
-    __syncthreads();
 }
 
 __global__ void prephase_exchanges(int *a) {
 
-    int i, k, j, jj, jjj, minmax, tid, dummy;
+    __shared__ int local_elements[MAX_LOCAL_ELEMENTS];
+    int i, i_mod, k, j, jj, jjj, minmax, ltid, tid, dummy;
 
     tid = blockIdx.x * blockDim.x + threadIdx.x;
+    ltid = threadIdx.x;
+
+    // Initialize the shared memory inside the block (each thread reads two elements...)
+    local_elements[ltid] = a[tid + MAX_THREADS * blockIdx.x]; // tid & ((1 << k) − 1)
+    local_elements[ltid + MAX_LOCAL_ELEMENTS / 2] = a[tid + MAX_THREADS * (blockIdx.x + 1)];
+    __syncthreads();
 
     for (k = 0; k < 11; k++) {
         for (j = k; j >= 0; j--) {
@@ -99,20 +103,23 @@ __global__ void prephase_exchanges(int *a) {
                 i = tid + MAX_THREADS * blockIdx.x;
             }
             minmax = i & jjj;
-            if (minmax == 0 && a[i] > a[i + jj]) {
-                dummy = a[i];
-                a[i] = a[i + jj];
-                a[i + jj] = dummy;
+            i_mod = i % MAX_LOCAL_ELEMENTS;
+            if (minmax == 0 && local_elements[i_mod] > local_elements[i_mod + jj]) {
+                dummy = local_elements[i_mod];
+                local_elements[i_mod] = local_elements[i_mod + jj];
+                local_elements[i_mod + jj] = dummy;
             }
-            if (minmax != 0 && a[i] < a[i + jj]) {
-                dummy = a[i];
-                a[i] = a[i + jj];
-                a[i + jj] = dummy;
+            if (minmax != 0 && local_elements[i_mod] < local_elements[i_mod + jj]) {
+                dummy = local_elements[i_mod];
+                local_elements[i_mod] = local_elements[i_mod + jj];
+                local_elements[i_mod + jj] = dummy;
             }
             __syncthreads();
         }
-        __syncthreads();
     }
+
+    a[tid + MAX_THREADS * blockIdx.x] = local_elements[ltid];
+    a[tid + MAX_THREADS * (blockIdx.x + 1)] = local_elements[ltid + MAX_LOCAL_ELEMENTS / 2];
 }
 
 int main(int argc, char *argv[]) {
@@ -170,19 +177,6 @@ int main(int argc, char *argv[]) {
     }
 
     prephase_exchanges<<<blocks, threads>>>(d_a);
-
-    // cudaMemcpy(A, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
-    // int p = 2;
-    // for (int m = 0; m < p; m ++) {
-    //     if (isSortedAscending(&A[m * (A_size / p)], A_size / p)) {
-    //         printf("Sorted Ascending!\n");
-    //     } else if (isSortedDescending(&A[m * (A_size / p)], A_size / p)) {
-    //         printf("Sorted Descending!\n");
-    //     } else {
-    //         printf("Error!\n");
-    //     }
-    // }
-    // printf("\n");
 
     for (k = 11; k < Q; k++) {
         for (j = k; j > 10; j--) {
