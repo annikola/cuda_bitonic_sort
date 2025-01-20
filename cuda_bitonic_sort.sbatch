@@ -1,8 +1,9 @@
 #! /usr/bin/env bash
 
 #SBATCH --partition=gpu
-#SBATCH --ntasks-per-node=1
 #SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:1
 #SBATCH --time=00:05:00
 
 module load gcc/13.2.0-iqpfkya
