@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
 
     for (k = 12; k < Q; k++) {
         external_exchanges<<<blocks, threads>>>(d_a, k);
-        for (j = k - 1; j >= 10; j--) {
+        for (j = k - 1; j > 10; j--) {
             global_exchanges<<<blocks, threads>>>(d_a, j, k);
         }
         internal_exchanges<<<blocks, threads>>>(d_a, 11, k);
