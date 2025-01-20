@@ -42,19 +42,17 @@ __global__ void external_exchanges(int *a, int k) {
 
 __global__ void internal_exchanges(int *a, int k) {
 
-    int i, j, jj, jjj, minmax, tid, dummy, total_threads, total_blocks;
+    int i, j, jj, jjj, minmax, tid, dummy;
 
-    total_threads = blockDim.x * blockDim.y * blockDim.z;
-    total_blocks = gridDim.x * gridDim.y * gridDim.z;
     tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     for (j = k - 1; j >= 0; j--) {
         jj = 1 << j;
         jjj = 2 << k;
         if ((tid & jj) != 0) {
-            i = tid + total_threads * total_blocks - jj;
+            i = tid + MAX_THREADS * (blockIdx.x + 1) - jj;
         } else {
-            i = tid;
+            i = tid + MAX_THREADS * blockIdx.x;
         }
         minmax = i & jjj;
         if (minmax == 0 && a[i] > a[i + jj]) {
