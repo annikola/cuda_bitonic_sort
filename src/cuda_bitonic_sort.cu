@@ -168,12 +168,23 @@ int main(int argc, char *argv[]) {
     }
 
     prephase_exchanges<<<blocks, threads>>>(d_a);
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("CUDA error during prephase_exchanges: %s\n", cudaGetErrorString(err));
+    }
 
     for (k = 11; k < Q; k++) {
         for (j = k; j > 10; j--) {
             external_exchanges<<<blocks, threads>>>(d_a, j, k);
+            err = cudaGetLastError();
+            if (err != cudaSuccess) {
+                printf("CUDA error during external_exchanges: %s\n", cudaGetErrorString(err));
+            }
         }
         internal_exchanges<<<blocks, threads>>>(d_a, 11, k);
+        if (err != cudaSuccess) {
+            printf("CUDA error during internal_exchanges: %s\n", cudaGetErrorString(err));
+        }
     }
 
     err = cudaMemcpy(B, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
