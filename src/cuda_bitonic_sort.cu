@@ -11,6 +11,7 @@
 
 int isSortedAscending(int *arr, int size);
 int isSortedDescending(int *arr, int size);
+int isAscending(int *A, int n);
 
 __global__ void external_exchanges(int *a, int j, int k) {
 
@@ -125,10 +126,11 @@ __global__ void prephase_exchanges(int *a) {
 int main(int argc, char *argv[]) {
 
     int i, j, k, Q, A_size, blocks, threads;
-    int *A, *B, *d_a;
+    int *A, *d_a;
     float elapsed_time;
     cudaEvent_t start, stop;
     cudaError_t err;
+    // int *A_host_pinned;
 
     if (argc < MIN_ARGS + 1) {
         printf("Missing %d argument(s)\n", MIN_ARGS + 1 - argc);
@@ -142,7 +144,6 @@ int main(int argc, char *argv[]) {
     }
 
     A_size = 1 << Q;
-    B = (int *)malloc(A_size * sizeof(int));
     A = (int *)malloc(A_size * sizeof(int));
     for (i = 0; i < A_size; i++) {
         A[i] = rand();
@@ -153,6 +154,9 @@ int main(int argc, char *argv[]) {
     cudaEventRecord(start, 0); // Start the timing...
 
     cudaMalloc((void **)&d_a, A_size * sizeof(int));
+
+    // cudaMallocHost((void **)&A_host_pinned, A_size * sizeof(int)); // Allocate pinned memory
+    // memcpy(A_host_pinned, A, A_size * sizeof(int)); // Copy data into pinned memory
 
     err = cudaMemcpy(d_a, A, A_size * sizeof(int), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
@@ -187,7 +191,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    err = cudaMemcpy(B, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
+    err = cudaMemcpy(A, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
         printf("CUDA error during cudaMemcpy (B_a): %s\n", cudaGetErrorString(err));
     }
@@ -198,12 +202,15 @@ int main(int argc, char *argv[]) {
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf("Total execution time: %f ms\n", elapsed_time);
 
-    qsort(A, A_size, sizeof(int), asc_compare);
-    if (array_compare(A, B, A_size)) {
+    // Check the validity of the results
+    if (isAscending(A, Q)) {
         printf("Correctly sorted!\n");
     } else {
         printf("Falsely sorted!\n");
     }
+
+    // Free pinned memory after use
+    // cudaFreeHost(A_host_pinned);
 
     // Clean up
     cudaEventDestroy(start);
@@ -229,4 +236,17 @@ int isSortedDescending(int *arr, int size) {
         }
     }
     return 1; // Array is sorted
+}
+
+int isAscending(int *A, int n) {
+
+    int i;
+
+    for (i = 0; i < n - 1; i++) {
+        if (A[i] > A[i + 1]) {
+            return 0;
+        }
+    }
+
+    return 1;
 }

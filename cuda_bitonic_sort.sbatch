@@ -6,8 +6,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=00:05:00
 
-module load gcc/13.2.0-iqpfkya
-module load cuda/12.4.0-zk32gam
+module load gcc/12.2.0
+module load cuda/12.2.1-bxtxsod
 
 echo "Job started at $(date)"
 echo "Running on node: $SLURM_NODELIST"
