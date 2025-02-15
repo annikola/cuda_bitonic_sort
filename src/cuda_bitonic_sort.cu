@@ -6,7 +6,7 @@
 #define MAX_THREADS 1024
 #define MAX_LOCAL_ELEMENTS 2048
 #define MIN_ARGS 1
-#define MIN_Q 1
+#define MIN_Q 11
 #define MAX_Q 27
 
 int isSortedAscending(int *arr, int size);
@@ -51,7 +51,7 @@ __global__ void internal_exchanges(int *a, int k, int flow) {
 
     // Initialize the shared memory inside the block (each thread reads two elements...)
     local_elements[ltid] = a[tid + MAX_THREADS * blockIdx.x]; // tid & ((1 << k) − 1)
-    local_elements[ltid + MAX_LOCAL_ELEMENTS / 2] = a[tid + MAX_THREADS * (blockIdx.x + 1)];
+    local_elements[ltid + MAX_THREADS] = a[tid + MAX_THREADS * (blockIdx.x + 1)];
     __syncthreads();
 
     for (j = k - 1; j >= 0; j--) {
@@ -63,7 +63,7 @@ __global__ void internal_exchanges(int *a, int k, int flow) {
             i = tid + MAX_THREADS * blockIdx.x;
         }
         minmax = i & jjj;
-        i_mod = i % MAX_LOCAL_ELEMENTS;
+        i_mod = i & ((1 << 11) - 1); // i_mod = i % MAX_LOCAL_ELEMENTS;
         if (minmax == 0 && local_elements[i_mod] > local_elements[i_mod + jj]) {
             dummy = local_elements[i_mod];
             local_elements[i_mod] = local_elements[i_mod + jj];
@@ -78,7 +78,7 @@ __global__ void internal_exchanges(int *a, int k, int flow) {
     }
 
     a[tid + MAX_THREADS * blockIdx.x] = local_elements[ltid];
-    a[tid + MAX_THREADS * (blockIdx.x + 1)] = local_elements[ltid + MAX_LOCAL_ELEMENTS / 2];
+    a[tid + MAX_THREADS * (blockIdx.x + 1)] = local_elements[ltid + MAX_THREADS];
 }
 
 __global__ void prephase_exchanges(int *a) {
@@ -91,7 +91,7 @@ __global__ void prephase_exchanges(int *a) {
 
     // Initialize the shared memory inside the block (each thread reads two elements...)
     local_elements[ltid] = a[tid + MAX_THREADS * blockIdx.x]; // tid & ((1 << k) − 1)
-    local_elements[ltid + MAX_LOCAL_ELEMENTS / 2] = a[tid + MAX_THREADS * (blockIdx.x + 1)];
+    local_elements[ltid + MAX_THREADS] = a[tid + MAX_THREADS * (blockIdx.x + 1)];
     __syncthreads();
 
     for (k = 0; k < 11; k++) {
@@ -104,7 +104,7 @@ __global__ void prephase_exchanges(int *a) {
                 i = tid + MAX_THREADS * blockIdx.x;
             }
             minmax = i & jjj;
-            i_mod = i % MAX_LOCAL_ELEMENTS;
+            i_mod = i & ((1 << 11) - 1); // i_mod = i % MAX_LOCAL_ELEMENTS;
             if (minmax == 0 && local_elements[i_mod] > local_elements[i_mod + jj]) {
                 dummy = local_elements[i_mod];
                 local_elements[i_mod] = local_elements[i_mod + jj];
@@ -120,7 +120,7 @@ __global__ void prephase_exchanges(int *a) {
     }
 
     a[tid + MAX_THREADS * blockIdx.x] = local_elements[ltid];
-    a[tid + MAX_THREADS * (blockIdx.x + 1)] = local_elements[ltid + MAX_LOCAL_ELEMENTS / 2];
+    a[tid + MAX_THREADS * (blockIdx.x + 1)] = local_elements[ltid + MAX_THREADS];
 }
 
 int main(int argc, char *argv[]) {
@@ -130,7 +130,6 @@ int main(int argc, char *argv[]) {
     float elapsed_time;
     cudaEvent_t start, stop;
     cudaError_t err;
-    // int *A_host_pinned;
 
     if (argc < MIN_ARGS + 1) {
         printf("Missing %d argument(s)\n", MIN_ARGS + 1 - argc);
@@ -154,9 +153,6 @@ int main(int argc, char *argv[]) {
     cudaEventRecord(start, 0); // Start the timing...
 
     cudaMalloc((void **)&d_a, A_size * sizeof(int));
-
-    // cudaMallocHost((void **)&A_host_pinned, A_size * sizeof(int)); // Allocate pinned memory
-    // memcpy(A_host_pinned, A, A_size * sizeof(int)); // Copy data into pinned memory
 
     err = cudaMemcpy(d_a, A, A_size * sizeof(int), cudaMemcpyHostToDevice);
     if (err != cudaSuccess) {
@@ -208,9 +204,6 @@ int main(int argc, char *argv[]) {
     } else {
         printf("Falsely sorted!\n");
     }
-
-    // Free pinned memory after use
-    // cudaFreeHost(A_host_pinned);
 
     // Clean up
     cudaEventDestroy(start);
