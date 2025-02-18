@@ -9,8 +9,6 @@
 #define MIN_Q 11
 #define MAX_Q 27
 
-int isSortedAscending(int *arr, int size);
-int isSortedDescending(int *arr, int size);
 int isAscending(int *A, int n);
 
 __global__ void external_exchanges(int *a, int j, int k) {
@@ -199,7 +197,7 @@ int main(int argc, char *argv[]) {
     printf("Total execution time: %f ms\n", elapsed_time);
 
     // Check the validity of the results
-    if (isAscending(A, Q)) {
+    if (isAscending(A, A_size)) {
         printf("Correctly sorted!\n");
     } else {
         printf("Falsely sorted!\n");
@@ -211,24 +209,6 @@ int main(int argc, char *argv[]) {
     cudaFree(d_a);
 
     return 0;
-}
-
-int isSortedAscending(int *arr, int size) {
-    for (int i = 0; i < size - 1; i++) {
-        if (arr[i] > arr[i + 1]) {
-            return 0; // Array is not sorted
-        }
-    }
-    return 1; // Array is sorted
-}
-
-int isSortedDescending(int *arr, int size) {
-    for (int i = 0; i < size - 1; i++) {
-        if (arr[i] < arr[i + 1]) {
-            return 0; // Array is not sorted
-        }
-    }
-    return 1; // Array is sorted
 }
 
 int isAscending(int *A, int n) {
