@@ -5,11 +5,8 @@
 
 #define MAX_THREADS 1024
 #define MIN_ARGS 1
-#define MIN_Q 1
+#define MIN_Q 11
 #define MAX_Q 27
-
-int isSortedAscending(int *arr, int size);
-int isSortedDescending(int *arr, int size);
 
 __global__ void external_exchanges(int *a, int j, int k) {
 
@@ -178,22 +175,4 @@ int main(int argc, char *argv[]) {
     cudaFree(d_a);
 
     return 0;
-}
-
-int isSortedAscending(int *arr, int size) {
-    for (int i = 0; i < size - 1; i++) {
-        if (arr[i] > arr[i + 1]) {
-            return 0; // Array is not sorted
-        }
-    }
-    return 1; // Array is sorted
-}
-
-int isSortedDescending(int *arr, int size) {
-    for (int i = 0; i < size - 1; i++) {
-        if (arr[i] < arr[i + 1]) {
-            return 0; // Array is not sorted
-        }
-    }
-    return 1; // Array is sorted
 }
