@@ -9,8 +9,6 @@
 #define MIN_Q 11
 #define MAX_Q 27
 
-int isAscending(int *A, int n);
-
 __global__ void external_exchanges(int *a, int j, int k) {
 
     int i, jj, jjj, minmax, tid, dummy, total_threads, total_blocks;
@@ -187,7 +185,7 @@ int main(int argc, char *argv[]) {
 
     err = cudaMemcpy(A, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
-        printf("CUDA error during cudaMemcpy (B_a): %s\n", cudaGetErrorString(err));
+        printf("CUDA error during cudaMemcpy (A_a): %s\n", cudaGetErrorString(err));
     }
 
     cudaEventRecord(stop, 0); // Stop the timing...
@@ -209,17 +207,4 @@ int main(int argc, char *argv[]) {
     cudaFree(d_a);
 
     return 0;
-}
-
-int isAscending(int *A, int n) {
-
-    int i;
-
-    for (i = 0; i < n - 1; i++) {
-        if (A[i] > A[i + 1]) {
-            return 0;
-        }
-    }
-
-    return 1;
 }

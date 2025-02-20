@@ -5,35 +5,36 @@
 
 #define MAX_THREADS 1024
 #define MIN_ARGS 1
-#define MIN_Q 1
+#define MIN_Q 11
 #define MAX_Q 27
 
-__global__ void global_exchanges(int *a, int jj, int kk) {
+__global__ void external_exchanges(int *a, int j, int k) {
 
-    int i, ij, tid, dummy;
+    int jj, jjj, minmax, tid, dummy;
 
     tid = blockIdx.x * blockDim.x + threadIdx.x;
-    i = tid - 1;
-
-    ij = i ^ jj;
-    if (ij > i) {
-        if ((i & kk) == 0 && a[i] > a[ij]) {
-            dummy = a[i];
-            a[i] = a[ij];
-            a[ij] = dummy;
+    
+    jj = 1 << j;
+    jjj = 2 << k;
+    if ((tid & jj) == 0) {
+        minmax = tid & jjj;
+        if (minmax == 0 && a[tid] > a[tid + jj]) {
+            dummy = a[tid];
+            a[tid] = a[tid + jj];
+            a[tid + jj] = dummy;
         }
-        if ((i & kk) != 0 && a[i] < a[ij]) {
-            dummy = a[i];
-            a[i] = a[ij];
-            a[ij] = dummy;
+        if (minmax != 0 && a[tid] < a[tid + jj]) {
+            dummy = a[tid];
+            a[tid] = a[tid + jj];
+            a[tid + jj] = dummy;
         }
     }
 }
 
 int main(int argc, char *argv[]) {
 
-    int i, j, jj, k, kk, Q, A_size, blocks, threads;
-    int *A, *B, *d_a;
+    int i, j, k, Q, A_size, blocks, threads;
+    int *A, *d_a;
     float elapsed_time;
     cudaEvent_t start, stop;
     cudaError_t err;
@@ -50,11 +51,9 @@ int main(int argc, char *argv[]) {
     }
 
     A_size = 1 << Q;
-    B = (int *)malloc(A_size * sizeof(int));
     A = (int *)malloc(A_size * sizeof(int));
     for (i = 0; i < A_size; i++) {
         A[i] = rand();
-        B[i] = A[i];
     }
 
     cudaEventCreate(&start);
@@ -75,12 +74,10 @@ int main(int argc, char *argv[]) {
         blocks = A_size / MAX_THREADS;
         threads = MAX_THREADS;
     }
-    for (k = 1; k <= Q; k++) {
-        kk = 1 << k;
-        for (j = k - 1; j >= 0; j--) {
-            jj = 1 << j;
-            global_exchanges<<<blocks, threads>>>(d_a, jj, kk);
-            cudaDeviceSynchronize();
+
+    for (k = 0; k < Q; k++) {
+        for (j = k; j >= 0; j--) {
+            external_exchanges<<<blocks, threads>>>(d_a, j, k);
         }
     }
 
@@ -95,8 +92,8 @@ int main(int argc, char *argv[]) {
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf("Total execution time: %f ms\n", elapsed_time);
 
-    qsort(B, A_size, sizeof(int), asc_compare);
-    if (array_compare(A, B, A_size)) {
+    // Check the validity of the results
+    if (isAscending(A, A_size)) {
         printf("Correctly sorted!\n");
     } else {
         printf("Falsely sorted!\n");

@@ -100,7 +100,7 @@ __global__ void prephase_exchanges(int *a) {
 int main(int argc, char *argv[]) {
 
     int i, j, k, Q, A_size, blocks, threads;
-    int *A, *B, *d_a;
+    int *A, *d_a;
     float elapsed_time;
     cudaEvent_t start, stop;
     cudaError_t err;
@@ -117,7 +117,6 @@ int main(int argc, char *argv[]) {
     }
 
     A_size = 1 << Q;
-    B = (int *)malloc(A_size * sizeof(int));
     A = (int *)malloc(A_size * sizeof(int));
     for (i = 0; i < A_size; i++) {
         A[i] = rand();
@@ -143,7 +142,6 @@ int main(int argc, char *argv[]) {
     }
 
     prephase_exchanges<<<blocks, threads>>>(d_a);
-
     for (k = 11; k < Q; k++) {
         for (j = k; j > 10; j--) {
             external_exchanges<<<blocks, threads>>>(d_a, j, k);
@@ -151,9 +149,9 @@ int main(int argc, char *argv[]) {
         internal_exchanges<<<blocks, threads>>>(d_a, 11, k);
     }
 
-    err = cudaMemcpy(B, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
+    err = cudaMemcpy(A, d_a, A_size * sizeof(int), cudaMemcpyDeviceToHost);
     if (err != cudaSuccess) {
-        printf("CUDA error during cudaMemcpy (B_a): %s\n", cudaGetErrorString(err));
+        printf("CUDA error during cudaMemcpy (A_a): %s\n", cudaGetErrorString(err));
     }
 
     cudaEventRecord(stop, 0); // Stop the timing...
@@ -162,8 +160,8 @@ int main(int argc, char *argv[]) {
     cudaEventElapsedTime(&elapsed_time, start, stop);
     printf("Total execution time: %f ms\n", elapsed_time);
 
-    qsort(A, A_size, sizeof(int), asc_compare);
-    if (array_compare(A, B, A_size)) {
+    // Check the validity of the results
+    if (isAscending(A, A_size)) {
         printf("Correctly sorted!\n");
     } else {
         printf("Falsely sorted!\n");

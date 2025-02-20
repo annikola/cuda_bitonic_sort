@@ -1,5 +1,2 @@
 build/
 .vscode/
-src/test.cu
-*.nsys-rep
-*.sqlite
