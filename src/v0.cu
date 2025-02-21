@@ -10,24 +10,29 @@
 
 __global__ void external_exchanges(int *a, int j, int k) {
 
-    int jj, jjj, minmax, tid, dummy;
+    int i, jj, jjj, minmax, tid, dummy, total_threads, total_blocks;
 
+    total_threads = blockDim.x * blockDim.y * blockDim.z;
+    total_blocks = gridDim.x * gridDim.y * gridDim.z;
     tid = blockIdx.x * blockDim.x + threadIdx.x;
     
     jj = 1 << j;
     jjj = 2 << k;
-    if ((tid & jj) == 0) {
-        minmax = tid & jjj;
-        if (minmax == 0 && a[tid] > a[tid + jj]) {
-            dummy = a[tid];
-            a[tid] = a[tid + jj];
-            a[tid + jj] = dummy;
-        }
-        if (minmax != 0 && a[tid] < a[tid + jj]) {
-            dummy = a[tid];
-            a[tid] = a[tid + jj];
-            a[tid + jj] = dummy;
-        }
+    if ((tid & jj) != 0) {
+        i = tid + total_threads * total_blocks - jj;
+    } else {
+        i = tid;
+    }
+    minmax = i & jjj;
+    if (minmax == 0 && a[i] > a[i + jj]) {
+        dummy = a[i];
+        a[i] = a[i + jj];
+        a[i + jj] = dummy;
+    }
+    if (minmax != 0 && a[i] < a[i + jj]) {
+        dummy = a[i];
+        a[i] = a[i + jj];
+        a[i + jj] = dummy;
     }
 }
 
@@ -71,7 +76,7 @@ int main(int argc, char *argv[]) {
         blocks = 1;
         threads = A_size;
     } else {
-        blocks = A_size / MAX_THREADS;
+        blocks = (A_size / MAX_THREADS) / 2;
         threads = MAX_THREADS;
     }
 
